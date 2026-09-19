@@ -1,7 +1,7 @@
 <template>
-	<XsaSheet :visible="visible" title="举报与屏蔽" :large-text="largeText" @close="handleClose">
+	<XsaSheet :visible="visible" title="举报与屏蔽" title-sans close-up :large-text="largeText" @close="handleClose">
 		<view class="report-sheet" :class="{ 'large-text': largeText }">
-			<text class="lead">举报与屏蔽不要求认证。我们会尽快处理，不会向对方暴露你的身份。</text>
+			<text class="lead">举报与屏蔽提交后我们会尽快核查处理，你的举报身份严格保密，不会向对方泄露。</text>
 
 			<text class="section-title">举报原因</text>
 			<view class="reason-list">
@@ -210,18 +210,23 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+		font-family: var(--sans);
 	}
 
 	.lead {
-		font-size: 12px;
+		font-size: 14px;
 		line-height: 1.6;
 		color: var(--muted);
+		padding-left: 9px;
+		font-family: var(--sans);
 	}
 
 	.section-title {
-		font-size: 14px;
+		font-size: 15px;
 		font-weight: 700;
 		color: var(--ink);
+		padding-left: 9px;
+		font-family: var(--sans);
 	}
 
 	.reason-list {
@@ -235,15 +240,16 @@
 		border: 1px solid var(--line);
 		border-radius: 10px;
 		background: var(--surface);
-		font-size: 14px;
+		font-size: 15px;
 		color: var(--ink);
+		font-family: var(--sans);
 	}
 
 	.reason-item.active {
 		border-color: var(--accent);
-		background: var(--soft);
+		background: var(--accent-bg);
 		color: var(--accent);
-		font-weight: 700;
+		font-weight: 400;
 	}
 
 	.detail-input {
@@ -253,8 +259,9 @@
 		border: 1px solid var(--line);
 		border-radius: 10px;
 		background: var(--surface);
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--ink);
+		font-family: var(--sans);
 	}
 
 	.actions {
@@ -268,9 +275,17 @@
 		flex: 1;
 		height: 44px;
 		border-radius: 999px;
-		font-size: 14px;
+		font-size: 18px;
 		font-weight: 600;
 		border: none;
+		margin: 0;
+		padding: 3px 0 0 0;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		font-family: var(--sans);
 	}
 
 	.btn.secondary {
@@ -285,14 +300,14 @@
 	}
 
 	.report-sheet.large-text .lead {
-		font-size: 16px;
+		font-size: 18px;
 	}
 
 	.report-sheet.large-text .section-title,
 	.report-sheet.large-text .reason-item,
 	.report-sheet.large-text .detail-input,
 	.report-sheet.large-text .btn {
-		font-size: 16px;
+		font-size: 20px;
 	}
 
 	.report-sheet.large-text .reason-item {

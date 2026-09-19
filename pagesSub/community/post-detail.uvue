@@ -11,9 +11,8 @@
 					:show-follow="true"
 					@user-click="goUser"
 					@like="onLike"
-					@comment="focusComment"
-					@collect="onCollect"
-					@share="onShare"
+				@comment="focusComment"
+				@share="onShare"
 					@follow="onFollow"
 					@unfollow="onUnfollow"
 					@apply="onApply"
@@ -93,7 +92,6 @@ import {
 			getDynamicDetail,
 			likeDynamic,
 			likeComment,
-			collectDynamic,
 			shareDynamic,
 			followUserFromCommunity,
 			unfollowUserFromCommunity,
@@ -145,12 +143,10 @@ const normalize = (item: any) => {
 				location: item.location,
 				time: item.timeText != null ? item.timeText : '',
 				timeText: item.timeText,
-				likeCount: item.likeCount,
-				commentCount: item.commentCount,
-				collectCount: item.collectCount,
-				liked: item.liked,
-				collected: item.collected,
-				followed: item.followed,
+			likeCount: item.likeCount,
+			commentCount: item.commentCount,
+			liked: item.liked,
+			followed: item.followed,
 				applyStatus: item.applyStatus,
 				topicId: item.topicId,
 				tags: item.tags,
@@ -246,7 +242,55 @@ const load = async () => {
 		uni.showToast({ title: '该评论已不可查看', icon: 'none' })
 	}
 	const replyTo = (comment: any) => { if (comment.isDeleted == true) return; replyTarget.value = comment }
-	const removeComment = async (comment: any) => { const res = await deleteComment(comment.id, postId.value); if (res.success) { comment.content = '该评论已删除'; comment.isDeleted = true; comment.canDelete = false } else uni.showToast({ title: '删除失败，请重试', icon: 'none' }) }
+	// 把评论数变化同步到 storage，供社区列表页/话题页在 onShow 时对齐数量
+	const recordCommentCountSync = (pid: number, count: number) => {
+		try {
+			let map: any = {}
+			const raw = uni.getStorageSync('xsa_comment_count_sync')
+			if (raw != null && ('' + raw) != '') map = JSON.parse('' + raw)
+			if (map == null || typeof map !== 'object') map = {}
+			map['' + pid] = count
+			uni.setStorageSync('xsa_comment_count_sync', JSON.stringify(map))
+		} catch (e) {}
+	}
+	const removeComment = async (comment: any) => {
+		const res = await deleteComment(comment.id, postId.value)
+		if (!res.success) {
+			uni.showToast({ title: '删除失败，请重试', icon: 'none' })
+			return
+		}
+		// 后端已级联软删该评论及其全部回复，这里从本地列表一并移除，不再展示
+		const isRoot = comment.replyTo == null || (comment.rootId != null && Number(comment.rootId) == Number(comment.id))
+		const roots = comments.value as any[]
+		if (isRoot) {
+			const idx = roots.findIndex((c: any) => Number(c.id) == Number(comment.id))
+			if (idx >= 0) roots.splice(idx, 1)
+		} else {
+			for (let i = 0; i < roots.length; i++) {
+				const replies = roots[i].replies != null ? roots[i].replies as any[] : []
+				const kept = replies.filter((r: any) =>
+					Number(r.id) != Number(comment.id) &&
+					!(r.replyTo != null && Number(r.replyTo) == Number(comment.id)) &&
+					!(r.replyToCommentId != null && Number(r.replyToCommentId) == Number(comment.id))
+				)
+				const removedInRoot = replies.length - kept.length
+				if (removedInRoot > 0) {
+					roots[i].replies = kept
+					if (roots[i].replyCount != null) roots[i].replyCount = Math.max(0, Number(roots[i].replyCount) - removedInRoot)
+				}
+			}
+		}
+		comments.value = roots.slice()
+		// 以后端重算后的权威计数为准，刷新详情，保证各处评论数一致
+		try {
+			const detail = await getDynamicDetail(postId.value)
+			if (detail.success && detail.data != null && post.value != null && detail.data.commentCount != null) {
+				post.value.commentCount = Number(detail.data.commentCount)
+			}
+		} catch (e) {}
+		if (post.value != null && post.value.commentCount != null) recordCommentCountSync(postId.value, Number(post.value.commentCount))
+		uni.showToast({ title: '评论已删除', icon: 'none' })
+	}
 	const discardPendingCommentKey = () => {
 		if (pendingCommentKey.value != '') {
 			discardCommunityCreateKey(pendingCommentKey.value)
@@ -307,6 +351,7 @@ const submitComment = async () => {
 					} else comments.value.push(data.comment)
 					if (post.value != null) {
 						post.value.commentCount = (post.value.commentCount || 0) + 1
+						recordCommentCountSync(postId.value, Number(post.value.commentCount))
 					}
 					discardPendingCommentKey()
 					draft.value = ''
@@ -381,20 +426,7 @@ const onLike = async (id: number) => {
 			uni.showToast({ title: res.success ? '已生成分享内容，请使用右上角分享' : '分享暂不可用，请稍后重试', icon: 'none' })
 		}
 
-		const onCollect = async (id: number) => {
-			const ok = await guardRealName('collect')
-			if (!ok) return
-			const res = await collectDynamic(id)
-			if (res.success && post.value != null && res.data != null) {
-				post.value.collected = res.data.collected == true
-				if (res.data.collectCount != null) post.value.collectCount = Number(res.data.collectCount)
-			} else if (!res.success) {
-				const msg = res.message != null && res.message != '' ? '' + res.message : '收藏失败，请重试'
-				uni.showToast({ title: msg, icon: 'none' })
-			}
-		}
-
-	const onFollow = async (userId: number) => {
+		const onFollow = async (userId: number) => {
 		const ok = await guardRealName('follow')
 		if (!ok) return
 		const res = await followUserFromCommunity(userId)
@@ -508,7 +540,7 @@ const onApply = (userId: number) => {
 	.comment-head .title {
 		font-size: 16px;
 		font-weight: 700;
-		font-family: var(--serif);
+		font-family: var(--sans);
 	}
 	.empty-c {
 		padding: 22px 16px 28px;
@@ -552,16 +584,19 @@ const onApply = (userId: number) => {
 	.name {
 		font-size: 14px;
 		font-weight: 700;
+		font-family: var(--sans);
 		color: var(--ink);
 	}
 	.content {
 		margin-top: 2px;
-		font-size: 15px;
+		font-size: 14px;
 		line-height: 1.5;
+		font-family: var(--sans);
 		color: var(--ink);
 	}
 	.time {
-		font-size: 11px;
+		font-size: 14px;
+		font-family: var(--sans);
 	}
 	.comment-foot {
 		display: flex;
@@ -571,7 +606,8 @@ const onApply = (userId: number) => {
 		margin-top: 6px;
 	}
 	.like-btn {
-		font-size: 12px;
+		font-size: 14px;
+		font-family: var(--sans);
 		color: var(--muted);
 		padding: 4px 0 4px 10px;
 	}
@@ -600,9 +636,9 @@ const onApply = (userId: number) => {
 	}
 	.reply { margin: 9px 0 0; padding: 10px 12px; background: var(--paper); border-left: 3px solid var(--accent-bg); border-radius: 4px 12px 12px 4px; }
 	.reply-head { display: flex; flex-direction: row; align-items: center; gap: 7px; margin-bottom: 3px; }
-	.reply-name { font-size: 12px; font-weight: 700; color: var(--accent2); }
-	.reply-to { font-size: 11px; color: var(--muted); }
-	.reply-content { display: block; font-size: 13px; line-height: 1.5; color: var(--ink2); word-break: break-all; }
+	.reply-name { font-size: 14px; font-family: var(--sans); font-weight: 700; color: var(--accent2); }
+	.reply-to { font-size: 14px; font-family: var(--sans); color: var(--muted); }
+	.reply-content { display: block; font-size: 14px; line-height: 1.5; font-family: var(--sans); color: var(--ink2); word-break: break-all; }
 	.load-more { display: block; padding: 12px 16px; text-align: center; }
 	.send {
 		height: 40px;
@@ -628,7 +664,8 @@ const onApply = (userId: number) => {
 			align-items: center;
 		}
 		.report-link {
-			font-size: 12px;
+			font-size: 14px;
+			font-family: var(--sans);
 			color: var(--text-muted, #999);
 			padding: 2px 4px;
 		}

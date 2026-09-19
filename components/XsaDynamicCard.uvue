@@ -8,14 +8,16 @@
 						<view class="name-left">
 							<text class="name">{{ dynamic.user.name }}</text>
 							<text class="gender-icon" :class="genderClass" v-if="genderIcon !== ''">{{ genderIcon }}</text>
-							<text class="relation-tag inline" :class="tagTone(rt)" v-for="(rt, ri) in relationList" :key="ri">{{ rt }}</text>
 						</view>
 					</view>
 					<view class="meta-row" v-if="metaLine !== ''">
 						<text class="meta-text">{{ metaLine }}</text>
 					</view>
+					<view class="relation-row" v-if="relationList.length > 0">
+						<text class="relation-tag" v-for="(rt, ri) in relationList" :key="ri">{{ rt }}</text>
+					</view>
 					<view class="tag-row" v-if="tagList.length > 0">
-						<text class="mini-tag" :class="tagTone(tag)" v-for="(tag, i) in tagList" :key="i">{{ tag }}</text>
+						<text class="mini-tag" v-for="(tag, i) in tagList" :key="i">{{ tag }}</text>
 					</view>
 				</view>
 			<button
@@ -69,8 +71,24 @@
 					<text class="topic-label">{{ topicLabel }}</text>
 				</view>
 
-		<view class="location-time-row" v-if="dynamic.location || timeText !== ''">
+				<!-- 点赞摘要：后端返回头像时展示，缺少头像时仍保留数量信息。 -->
+				<view class="like-summary" @click.stop="handleLike">
+					<view class="like-avatars" v-if="likeCount > 0 && likeAvatarList.length > 0">
+						<image
+							class="like-avatar"
+							v-for="(av, ai) in likeAvatarList"
+							:key="ai"
+							:src="av"
+							mode="aspectFill"
+							:style="{ marginLeft: ai == 0 ? '0' : '-8px', zIndex: 10 - ai }"
+						></image>
+					</view>
+					<text class="like-summary-text text-muted" v-if="likeCount > 0">等{{ likeCount }}人赞过</text>
+				</view>
+
+			<view class="location-time-row" v-if="dynamic.location || timeText !== ''">
 				<view class="location" v-if="dynamic.location">
+					<text class="icon">📍</text>
 					<text class="text text-muted">{{ dynamic.location }}</text>
 				</view>
 				<text class="time time-bottom text-muted" v-if="timeText !== ''">{{ timeText }}</text>
@@ -79,17 +97,18 @@
 
 		<!-- 互动栏 -->
 		<view class="card-footer" @click.stop>
-			<view class="action-item" @click="handleLike">
+			<view class="action-item action-item-like" @click="handleLike">
 				<text class="ic ic-social action-icon" :class="{ liked: liked }">{{ likeIcon }}</text>
-				<text class="text text-muted" :class="{ liked: liked }" v-if="likeCount > 0">{{ likeCount }}</text>
+				<text class="text text-muted action-count like-count-slot" :class="{ liked: liked }">{{ likeCount > 0 ? likeCount : '' }}</text>
 			</view>
 			<view class="action-item" @click="handleComment">
-				<text class="ic ic-social action-icon">{{ commentIcon }}</text>
-				<text class="text text-muted" v-if="commentCount > 0">{{ commentCount }}</text>
+				<image class="comment-icon" src="/static/婚恋小程序图标/社区互动与信息/comment-bubble.png" mode="aspectFit"></image>
+				<text class="text text-muted action-count comment-count-slot" v-if="commentCount > 0">{{ commentCount }}</text>
+				<text class="text text-muted action-count comment-count-slot" v-else>抢首评</text>
 			</view>
-			<view class="action-item" @click="handleShare">
-				<text class="icon">↗</text>
-				<text class="text text-muted">分享</text>
+			<view class="action-item action-item-share" @click="handleShare">
+				<image class="share-icon" src="/static/婚恋小程序图标/社区互动与信息/share-arrow.png" mode="aspectFit"></image>
+				<text class="text text-muted share-text">分享</text>
 			</view>
 			<button
 				class="apply-btn"
@@ -134,12 +153,10 @@ interface DynamicUser {
 			location?: string
 			time?: string
 			timeText?: string
-			likeCount?: number
-			commentCount?: number
-			collectCount?: number
-			liked?: boolean
-			collected?: boolean
-			followed?: boolean
+		likeCount?: number
+		commentCount?: number
+		liked?: boolean
+		followed?: boolean
 			applyStatus?: string
 			topicId?: number
 			tags?: string[]
@@ -166,7 +183,6 @@ const emit = defineEmits<{
 	like: [dynamicId: number]
 	comment: [dynamicId: number]
 	share: [dynamicId: number]
-	collect: [dynamicId: number]
 	follow: [userId: number]
 	unfollow: [userId: number]
 	apply: [userId: number]
@@ -179,7 +195,6 @@ const liked = ref(props.dynamic.liked === true)
 const likeCount = ref(props.dynamic.likeCount != null ? props.dynamic.likeCount : 0)
 const followed = ref(props.dynamic.followed === true)
 const likeIcon = String.fromCharCode(0xec8c)
-const commentIcon = String.fromCharCode(0xe679)
 const applyStatus = ref(props.dynamic.applyStatus != null ? props.dynamic.applyStatus : 'none')
 
 watch(
@@ -203,7 +218,7 @@ const commentCount = computed((): number => {
 	return props.dynamic.commentCount != null ? props.dynamic.commentCount : 0
 })
 
-	const genderIcon = computed((): string => {
+const genderIcon = computed((): string => {
 		const g = props.dynamic.user != null ? props.dynamic.user.gender : null
 		if (g == null || g === '') return ''
 		const s = ('' + g).toLowerCase()
@@ -213,11 +228,8 @@ const commentCount = computed((): number => {
 	})
 
 	const genderClass = computed((): string => {
-		const g = props.dynamic.user != null ? props.dynamic.user.gender : null
-		if (g == null || g === '') return ''
-		const s = ('' + g).toLowerCase()
-		if (s == '男' || s == 'male' || s == 'm') return 'male'
-		if (s == '女' || s == 'female' || s == 'f') return 'female'
+		if (genderIcon.value === '♂') return 'gender-male'
+		if (genderIcon.value === '♀') return 'gender-female'
 		return ''
 	})
 
@@ -262,22 +274,6 @@ const commentCount = computed((): number => {
 		return '相关话题'
 	})
 
-	// 按标签语义匹配莫兰迪低饱和色调：关系→蓝 认证→绿 情感→粉 兴趣→橙
-	const tagTone = (text: string): string => {
-		const t = ('' + text).toLowerCase()
-		if (t.indexOf('同城') >= 0 || t.indexOf('校友') >= 0 || t.indexOf('同校') >= 0 || t.indexOf('同乡') >= 0 || t.indexOf('同省') >= 0) {
-			return 'blue'
-		}
-		if (t.indexOf('认真关系') >= 0 || t.indexOf('脱单') >= 0 || t.indexOf('恋爱') >= 0 || t.indexOf('奔现') >= 0) {
-			return 'pink'
-		}
-		const orangeKw = ['晚霞', '速写', '城市周末', '周末', '旅行', '摄影', '读书', '美食', '运动', '音乐', '电影', '宠物', '健身', '咖啡', '手作', '展览', '看展', '插画', '绘画', '徒步', '露营', '剧本杀', '猫', '狗']
-		for (let i = 0; i < orangeKw.length; i++) {
-			if (t.indexOf(orangeKw[i]) >= 0) return 'orange'
-		}
-		return 'green'
-	}
-
 	const hasVideo = computed((): boolean => {
 		if (props.dynamic.mediaType == 'video') return true
 		if (props.dynamic.videos != null && (props.dynamic.videos as string[]).length > 0) return true
@@ -307,9 +303,6 @@ const commentCount = computed((): number => {
 		const out: string[] = []
 		const relationSet = relationList.value
 		const u = props.dynamic.user
-		if (u != null && (u.realNameStatus == 'passed' || u.verified == true)) {
-			out.push('已实名')
-		}
 
 		// 页面传入的 tags 优先，便于不同场景选择各自最重要的资料标签。
 		if (props.dynamic.tags != null) {
@@ -427,6 +420,8 @@ const handleOpen = () => {
 .xsa-dynamic-card {
 	background: var(--surface);
 	margin-bottom: 8px;
+	/* 与「关注」按钮一致的系统无衬线字体 */
+	font-family: var(--sans);
 }
 
 .card-header {
@@ -438,11 +433,11 @@ const handleOpen = () => {
 }
 
 .avatar {
-	width: 48px;
-	height: 48px;
+	margin-top: 27px;
+	width: 40px;
+	height: 40px;
 	border-radius: 50%;
 	flex-shrink: 0;
-	margin-top: 3px;
 }
 
 .user-info {
@@ -457,6 +452,9 @@ const handleOpen = () => {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+		height: 24px;
+		margin-top: 23px;
+		justify-content: space-between;
 		gap: 8px;
 	}
 
@@ -464,69 +462,62 @@ const handleOpen = () => {
 		display: flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 6px;
 		min-width: 0;
 	}
 
 	.name {
-		font-size: 15px;
+		font-size: 20px;
+		line-height: 24px;
 		font-weight: 600;
 		color: var(--ink);
+		font-family: var(--sans);
 	}
 
 	.gender-icon {
-		font-size: 12px;
-		color: var(--muted);
+		font-size: 18px;
+		line-height: 24px;
+		margin-left: 4px;
 	}
 
-	.gender-icon.male {
-		color: #6A9ECF;
+	.gender-icon.gender-male {
+		color: #3B82F6;
 	}
 
-	.gender-icon.female {
-		color: #D98C9E;
+	.gender-icon.gender-female {
+		color: #FF6FA5;
 	}
 
 	.time {
-		font-size: 12px;
+		font-size: 13px;
 		flex-shrink: 0;
 	}
 
 	.meta-row {
-		margin-top: 2px;
+		height: 24px;
+		margin-top: -2px;
 	}
 
 	.meta-text {
-		font-size: 11px;
-		line-height: 1.4;
+		font-size: 16px;
+		font-family: var(--sans);
+		line-height: 24px;
 		color: var(--accent);
+	}
+
+	.relation-row {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-top: 4px;
 	}
 
 	.relation-tag {
 		font-size: 10px;
-		color: #5A7D72;
-		background: #E8F1ED;
+		color: var(--accent2);
+		background: var(--accent-bg);
 		padding: 2px 8px;
 		border-radius: 999px;
-	}
-
-	.relation-tag.blue {
-		color: #5C7A95;
-		background: #DCE6EF;
-	}
-
-	.relation-tag.pink {
-		color: #B57A8C;
-		background: #F8E6EC;
-	}
-
-	.relation-tag.orange {
-		color: #A98A4E;
-		background: #F8EEDD;
-	}
-
-	.relation-tag.inline {
-		flex-shrink: 0;
 	}
 
 	.tag-row {
@@ -534,18 +525,18 @@ const handleOpen = () => {
 		flex-direction: row;
 		flex-wrap: wrap;
 		gap: 4px;
-		margin-top: 4px;
 	}
 
 .mini-tag {
 	font-size: 10px;
 	padding: 2px 6px;
 	border-radius: 4px;
-	background: #F5EDE6;
-	color: #8F7566;
+	background: var(--soft);
+	color: var(--accent2);
 }
 
 .follow-btn {
+	align-self: center;
 	height: 28px;
 	padding: 0 10px;
 	border-radius: 999px;
@@ -556,6 +547,7 @@ const handleOpen = () => {
 	font-weight: 700;
 	line-height: 26px;
 	flex-shrink: 0;
+	font-family: var(--sans);
 }
 
 .follow-btn.done {
@@ -565,6 +557,7 @@ const handleOpen = () => {
 }
 
 .more-btn {
+	align-self: center;
 	width: 32px;
 	height: 32px;
 	display: flex;
@@ -584,9 +577,10 @@ const handleOpen = () => {
 }
 
 .content-text {
-	font-size: 15px;
+	font-size: 16px;
 	color: var(--ink);
 	line-height: 1.6;
+	font-family: var(--sans);
 	display: block;
 	margin-bottom: 12px;
 }
@@ -675,19 +669,52 @@ const handleOpen = () => {
 	margin-bottom: 8px;
 	padding: 4px 8px;
 	border-radius: 6px;
-	background: #EDE8F5;
+	background: var(--accent-bg);
 }
 
 .topic-hash {
-	color: #7A6A9A;
+	color: var(--accent);
 	font-weight: 800;
 	font-size: 12px;
 }
 
 .topic-label {
 	font-size: 12px;
-	color: #6B5D87;
+	color: var(--accent2);
 	font-weight: 600;
+}
+
+.like-summary {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	padding-top: 4px;
+	margin-bottom: 4px;
+	/* 固定高度占位（头像 22px + 上下边框 2px*2 = 26px），点赞前后高度完全不变，互动栏不位移 */
+	height: 26px;
+	overflow: hidden;
+}
+
+.like-avatars {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding-left: 0;
+}
+
+.like-avatar {
+	width: 22px;
+	height: 22px;
+	box-sizing: border-box;
+	border-radius: 50%;
+	border: 2px solid var(--surface);
+	background: var(--soft);
+}
+
+.like-summary-text {
+	font-size: 13px;
+	font-family: var(--sans);
 }
 
 .location {
@@ -721,9 +748,10 @@ const handleOpen = () => {
 }
 
 .time-bottom {
-	font-size: 12px;
+	font-size: 13px;
 	flex-shrink: 0;
 	margin-left: auto;
+	font-family: var(--sans);
 }
 
 .card-footer {
@@ -742,21 +770,68 @@ const handleOpen = () => {
 	gap: 4px;
 }
 
+/* 点赞与评论之间额外拉开间距（footer 的 16px gap 之外再加 8px） */
+/* 「分享」文字右移 1px，图标位置不受影响 */
+.share-text {
+	margin-left: 1px;
+}
+
+.action-item-like {
+	margin-right: 5px;
+}
+
+/* 分享项在评论左移 2px 的基础上再左移 6px（负边距，不受评论文案宽度变化影响） */
+.action-item-share {
+	margin-left: -9px;
+}
+
+/* 点赞数 / 评论数 / 抢首评：统一字体与字号 */
+.action-count {
+	font-size: 13px;
+	font-family: var(--sans);
+	line-height: 18px;
+}
+
+/* 点赞数常驻占位：未点赞时也保留宽度，点赞后评论/分享图标不横移 */
+.like-count-slot {
+	min-width: 22px;
+	/* 数字相对图标右移 1px；点赞项右边距同步-1px，保证后续图标位置不变 */
+	margin-left: 1px;
+}
+
+/* 评论数/抢首评占位：数字与「抢首评」等宽，切换时分享图标不横移 */
+.comment-count-slot {
+	min-width: 42px;
+}
+
 .action-icon {
-	font-size: 18px;
+	font-size: 19px;
+	line-height: 19px;
+	display: block;
+	height: 19px;
 	color: var(--muted);
 }
 
-.action-icon.liked {
-	color: var(--danger);
+.comment-icon {
+	display: block;
+	width: 18px;
+	height: 18px;
 }
 
+.share-icon {
+	display: block;
+	width: 18px;
+	height: 18px;
+}
+
+/* 点赞后：图标与数字统一为浅紫色 */
 .action-icon.liked {
+	color: #C3A6E8;
 	animation: heartBeat 0.3s ease;
 }
 
 .action-item .text.liked {
-	color: var(--accent2);
+	color: #C3A6E8;
 	font-weight: 700;
 }
 
@@ -775,6 +850,8 @@ const handleOpen = () => {
 	font-size: 12px;
 	font-weight: 700;
 	line-height: 32px;
+	/* 与「关注」按钮一致的系统无衬线字体（原生 button 不继承根节点，需显式指定） */
+	font-family: var(--sans);
 }
 
 .apply-btn.pending,

@@ -31,13 +31,13 @@
 						<text class="hero-identity-name">{{ paperPlaneProfile.nickname }}</text>
 						<text class="hero-identity-note">{{ paperPlaneProfile.initialized ? '纸飞机身份' : '请完成身份初始化' }}</text>
 					</view>
-					<text class="hero-identity-edit">✎</text>
+					<button class="hero-identity-edit"><text>编辑资料</text></button>
 				</view>
 			</view>
-		<view class="hero-mark">
-			<text class="hero-plane">✈</text>
-			<text class="hero-spark">✦</text>
-		</view>
+			<view class="hero-mark">
+				<text class="hero-plane">✈</text>
+				<text class="hero-spark">✦</text>
+			</view>
 		</view>
 
 		<view class="quota-bar">
@@ -198,16 +198,19 @@
 			<view class="plane-quota-modal" @click.stop>
 				<view class="plane-quota-heading">
 					<text class="plane-quota-title">获取纸飞机</text>
-					<button class="plane-quota-close" @click="closePlaneQuota">×</button>
+					<button class="plane-quota-close" @click="closePlaneQuota"><text class="close-x">×</text></button>
 				</view>
 				<view class="plane-quota-tabs">
 					<button class="plane-quota-tab" :class="{ active: planeQuotaTab == 'throw' }" @click="selectPlaneQuotaTab('throw')">扔纸飞机次数</button>
 					<button class="plane-quota-tab" :class="{ active: planeQuotaTab == 'catch' }" @click="selectPlaneQuotaTab('catch')">捡纸飞机次数</button>
 				</view>
 				<view class="plane-quota-panel">
-					<text class="plane-quota-copy">{{ planeQuotaTab == 'throw' ? '补充一次今日可扔纸飞机次数' : '补充一次捡纸飞机次数' }}</text>
+					<view class="plane-quota-circle">
+						<image class="plane-quota-plane" :class="{ 'plane-quota-plane-catch': planeQuotaTab == 'catch' }" src="/static/icons/paper-plane-origami.png" mode="aspectFit" />
+					</view>
+					<text class="plane-quota-hint" :class="{ 'plane-quota-hint-hidden': planeQuotaTab != 'catch' }">{{ planeQuotaTab == 'catch' ? '每日免费刷新3次捡飞机次数' : '' }}</text>
+					<text class="plane-quota-copy">{{ planeQuotaTab == 'throw' ? '当前扔纸飞机次数：' : '当前捡纸飞机次数：' }}{{ remain + purchasedThrowCount }}</text>
 					<button class="plane-quota-buy" :disabled="planeQuotaPurchasing" @click="purchasePaperPlaneTimes">{{ planeQuotaPurchasing ? '获取中...' : '50积分/次' }}</button>
-					<text v-if="planeQuotaTab == 'catch'" class="plane-quota-hint">每日免费刷新3次捡飞机次数</text>
 				</view>
 			</view>
 		</view>
@@ -219,7 +222,7 @@
 						<text class="plane-profile-modal-title">{{ paperPlaneProfile.initialized ? '修改纸飞机身份' : '先完成纸飞机身份' }}</text>
 						<text class="plane-profile-modal-desc">仅用于纸飞机，不会同步到小程序其他页面</text>
 					</view>
-					<button class="plane-profile-modal-close" @click="closePaperPlaneProfileEditor">×</button>
+					<button class="plane-profile-modal-close" @click="closePaperPlaneProfileEditor"><text class="close-x">×</text></button>
 				</view>
 
 				<view class="plane-profile-form-field">
@@ -238,12 +241,12 @@
 								<view class="plane-profile-default-head"></view>
 								<view class="plane-profile-default-body"></view>
 							</view>
-							<text>默认头像</text>
+							<text class="plane-avatar-choice-label">默认头像</text>
 						</button>
 						<button class="plane-avatar-choice" :class="{ active: paperPlaneProfileDraft.avatarType == 'album' }" @click="choosePaperPlaneAvatar">
 							<image v-if="paperPlaneProfileDraft.avatarType == 'album' && paperPlaneProfileDraft.avatar != ''" class="plane-profile-choice-image" :src="paperPlaneProfileDraft.avatar" mode="aspectFill"></image>
 							<view v-else class="plane-profile-album-placeholder"><text>+</text></view>
-							<text>从相册选择</text>
+							<text class="plane-avatar-choice-label">从相册选择</text>
 						</button>
 					</view>
 				</view>
@@ -255,7 +258,7 @@
 		<view v-if="composerVisible" class="composer-overlay" @click="closeComposer">
 			<view class="composer-modal" @click.stop>
 				<view class="modal-topline">
-					<button class="modal-close" @click="closeComposer">×</button>
+					<button class="modal-close" @click="closeComposer"><text class="close-x">×</text></button>
 				</view>
 				<view class="composer-tabs">
 					<button class="composer-tab" :class="{ active: composerTab == 'text' }" @click="switchComposerTab('text')">文字纸飞机</button>
@@ -1135,7 +1138,9 @@
 	.hero-identity-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 	.hero-identity-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 800; color: var(--ink); }
 	.hero-identity-note { font-size: 10px; line-height: 1.3; color: var(--muted); }
-	.hero-identity-edit { flex-shrink: 0; font-size: 16px; line-height: 1; color: var(--plane-purple); }
+	.hero-identity-edit { flex-shrink: 0; min-width: 64px; margin: 0; padding: 4px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--plane-purple); display: flex; flex-direction: row; align-items: center; justify-content: center; }
+	.hero-identity-edit::after { border: none; }
+	.hero-identity-edit text { font-size: 10px; font-weight: 700; color: var(--plane-purple); font-family: var(--sans); }
 	.hero-mark { width: 72px; height: 72px; border-radius: 20px; background: var(--plane-lilac); position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 	.hero-plane { font-size: 39px; color: var(--plane-purple); transform: rotate(-14deg); }
 	.hero-spark { position: absolute; right: 10px; top: 8px; font-size: 17px; color: var(--plane-pink); }
@@ -1156,7 +1161,7 @@
 	.q-label { font-size: 11px; color: var(--plane-purple); }
 	.quota-badge { min-width: 84px; margin: 0; padding: 4px 8px; border-radius: 999px; background: var(--surface); }
 	.quota-badge::after { border: none; }
-	.quota-badge text { font-size: 10px; font-weight: 700; color: var(--plane-purple); }
+	.quota-badge text { font-size: 10px; font-weight: 700; color: var(--plane-purple); padding-left: 3px; }
 	.topic-card { position: relative; z-index: 2; margin: 16px 14px 0; padding: 16px; border-radius: 18px; background: var(--plane-surface); border: 1px solid #DDD2F8; box-shadow: var(--shadow-sm); }
 	.topic-row { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
 	.topic-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1165,7 +1170,7 @@
 	.topic-icon text { font-size: 14px; }
 	.topic-kicker { font-size: 12px; font-weight: 800; color: var(--plane-purple); }
 	.topic-title { font-size: 18px; line-height: 1.35; font-family: var(--serif); font-weight: 700; color: var(--ink); }
-	.topic-action { width: 76px; height: 34px; flex-shrink: 0; margin-top: 6px; border-radius: 10px; background: var(--plane-purple); color: var(--text-invert); font-size: 11px; font-weight: 800; }
+	.topic-action { width: 76px; height: 34px; flex-shrink: 0; margin-top: 6px; border-radius: 10px; background: var(--plane-purple); color: var(--text-invert); font-size: 11px; font-weight: 800; display: flex; flex-direction: row; align-items: center; justify-content: center; padding-top: 1px; box-sizing: border-box; }
 	.topic-action::after { border: none; }
 	.topic-desc { display: block; margin-top: 11px; font-size: 11px; line-height: 1.55; color: var(--muted); }
 	.quiet-note { position: relative; z-index: 2; display: flex; flex-direction: row; align-items: center; gap: 10px; margin: 14px 16px 0; padding: 12px 13px; border-radius: 15px; background: var(--plane-surface); }
@@ -1242,25 +1247,30 @@
 	.plane-quota-overlay { position: fixed; inset: 0; z-index: 10080; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(25, 15, 48, 0.55); }
 	.plane-quota-modal { width: 100%; max-width: 340px; padding: 18px; border-radius: 20px; background: var(--paper); box-shadow: var(--shadow-lg); }
 	.plane-quota-heading { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
-	.plane-quota-title { font-size: 19px; line-height: 1.3; font-family: var(--serif); font-weight: 800; color: var(--ink); }
-	.plane-quota-close { width: 30px; height: 30px; flex-shrink: 0; margin: 0; border-radius: 15px; background: var(--bg-subtle); color: var(--muted); font-size: 21px; line-height: 28px; }
+	.plane-quota-title { font-size: 19px; line-height: 1.3; font-family: var(--sans); font-weight: 800; color: var(--ink); }
+	.plane-quota-close { width: 30px; height: 30px; flex-shrink: 0; margin: 0; padding: 0; border-radius: 15px; background: var(--plane-lilac); color: var(--muted); font-size: 21px; display: flex; flex-direction: row; align-items: center; justify-content: center; }
+	.close-x { line-height: 1; margin-right: -1px; margin-bottom: 1px; }
 	.plane-quota-close::after { border: none; }
-	.plane-quota-tabs { display: flex; flex-direction: row; gap: 4px; margin-top: 18px; padding: 4px; border-radius: 14px; background: var(--bg-subtle); }
-	.plane-quota-tab { flex: 1; height: 38px; margin: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 12px; }
+	.plane-quota-tabs { display: flex; flex-direction: row; gap: 4px; margin-top: 18px; padding: 4px; border-radius: 14px; background: var(--plane-lilac); }
+	.plane-quota-tab { flex: 1; height: 38px; margin: 0; border-radius: 10px; background: transparent; color: var(--plane-purple-deep); font-size: 12px; font-family: var(--sans); font-weight: 800; display: flex; flex-direction: row; align-items: center; justify-content: center; padding-top: 1px; box-sizing: border-box; }
 	.plane-quota-tab::after { border: none; }
 	.plane-quota-tab.active { background: var(--plane-purple); color: var(--text-invert); font-weight: 800; }
-	.plane-quota-panel { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding-top: 20px; }
-	.plane-quota-copy { text-align: center; font-size: 13px; line-height: 1.5; color: var(--muted); }
-	.plane-quota-buy { width: 100%; height: 46px; margin: 0; border-radius: 14px; background: var(--plane-purple); color: var(--text-invert); font-size: 15px; font-weight: 800; }
+	.plane-quota-panel { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding-top: 20px; min-height: 124px; }
+	.plane-quota-circle { width: 128px; height: 128px; margin: 0 auto; border-radius: 50%; background: var(--plane-lilac); display: flex; align-items: center; justify-content: center; }
+	.plane-quota-plane { width: 76px; height: 76px; display: block; transition: transform 0.25s ease; }
+	.plane-quota-plane-catch { transform: rotate(180deg); }
+	.plane-quota-copy { text-align: center; font-size: 13px; line-height: 1.5; color: var(--muted); font-family: var(--sans); }
+	.plane-quota-buy { width: 100%; height: 46px; margin: 0; border-radius: 14px; background: var(--plane-purple); color: var(--text-invert); font-size: 15px; font-weight: 800; display: flex; flex-direction: row; align-items: center; justify-content: center; padding-top: 1px; box-sizing: border-box; }
 	.plane-quota-buy::after { border: none; }
 	.plane-quota-buy:disabled { opacity: 0.55; }
-	.plane-quota-hint { text-align: center; font-size: 11px; line-height: 1.5; color: var(--plane-purple); }
+	.plane-quota-hint { text-align: center; font-size: 11px; line-height: 1.5; color: var(--plane-purple); min-height: 18px; }
+	.plane-quota-hint-hidden { visibility: hidden; }
 	.plane-profile-overlay { position: fixed; inset: 0; z-index: 10070; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(25, 15, 48, 0.55); }
 	.plane-profile-modal { width: 100%; max-width: 340px; padding: 18px; border-radius: 20px; background: var(--paper); box-shadow: var(--shadow-lg); }
 	.plane-profile-modal-heading { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 12px; }
-	.plane-profile-modal-title { display: block; font-size: 19px; line-height: 1.3; font-family: var(--serif); font-weight: 800; color: var(--ink); }
-	.plane-profile-modal-desc { display: block; margin-top: 5px; font-size: 11px; line-height: 1.5; color: var(--muted); }
-	.plane-profile-modal-close { width: 30px; height: 30px; flex-shrink: 0; border-radius: 15px; background: var(--bg-subtle); color: var(--muted); font-size: 21px; line-height: 28px; }
+	.plane-profile-modal-title { display: block; font-size: 19px; line-height: 1.3; font-family: var(--sans); font-weight: 800; color: var(--ink); }
+	.plane-profile-modal-desc { display: block; margin-top: 5px; font-size: 11px; line-height: 1.5; color: var(--muted); font-family: var(--sans); }
+	.plane-profile-modal-close { width: 30px; height: 30px; flex-shrink: 0; margin: 0; padding: 0; border-radius: 15px; background: var(--plane-lilac); color: var(--muted); font-size: 21px; display: flex; flex-direction: row; align-items: center; justify-content: center; }
 	.plane-profile-modal-close::after { border: none; }
 	.plane-profile-form-field { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
 	.plane-profile-label-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; }
@@ -1269,47 +1279,48 @@
 	.plane-profile-random::after { border: none; }
 	.plane-profile-input { width: 100%; height: 43px; padding: 0 12px; border: 1px solid #D9D4E7; border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 14px; }
 	.plane-avatar-options { display: flex; flex-direction: row; gap: 10px; }
-	.plane-avatar-choice { flex: 1; min-width: 0; height: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px solid #DED9E9; border-radius: 14px; background: var(--surface); color: var(--muted); font-size: 11px; }
+	.plane-avatar-choice { flex: 1; min-width: 0; height: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px solid #DED9E9; border-radius: 14px; background: var(--surface); color: var(--muted); font-size: 11px; font-family: var(--sans); }
 	.plane-avatar-choice::after { border: none; }
 	.plane-avatar-choice.active { border-color: var(--plane-purple); background: #F7F2FF; color: var(--plane-purple); }
 	.plane-profile-default-small, .plane-profile-choice-image, .plane-profile-album-placeholder { width: 32px; height: 32px; border-radius: 50%; }
-	.plane-profile-default-small { border: 1px solid #DDE1E7; }
+	.plane-profile-default-small { border: 1px solid #DDE1E7; margin-top: 25px; }
 	.plane-profile-default-small .plane-profile-default-head { top: 6px; width: 10px; height: 10px; margin-left: -5px; }
 	.plane-profile-default-small .plane-profile-default-body { bottom: -2px; width: 20px; height: 14px; margin-left: -10px; border-radius: 11px 11px 0 0; }
 	.plane-profile-choice-image { background: #E8EBEF; }
-	.plane-profile-album-placeholder { display: flex; align-items: center; justify-content: center; background: #EEF0F6; color: #81899A; font-size: 21px; line-height: 32px; }
-	.plane-profile-save { width: 100%; height: 46px; margin-top: 22px; border-radius: 14px; background: var(--plane-purple); color: var(--text-invert); font-size: 14px; font-weight: 800; }
+	.plane-profile-album-placeholder { display: flex; align-items: center; justify-content: center; background: #EEF0F6; color: #81899A; font-size: 21px; line-height: 32px; margin-top: 25px; }
+	.plane-avatar-choice-label { margin-top: -4px; font-family: var(--sans); }
+	.plane-profile-save { width: 100%; height: 46px; margin-top: 24px; box-sizing: border-box; padding-top: 4px; border-radius: 14px; background: #9176DC; color: var(--text-invert); font-size: 14px; font-weight: 800; }
 	.plane-profile-save::after { border: none; }
 	.composer-overlay { position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(25, 15, 48, 0.55); }
-	.composer-modal { width: 100%; max-width: 340px; padding: 16px; border-radius: 20px; background: var(--paper); box-shadow: var(--shadow-lg); }
+	.composer-modal { width: 100%; max-width: 340px; min-height: 440px; padding: 16px; border-radius: 20px; background: var(--paper); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; font-family: var(--sans); }
 	.modal-topline { display: flex; flex-direction: row; justify-content: flex-end; align-items: center; height: 32px; }
-	.modal-close { width: 32px; height: 32px; border-radius: 16px; background: var(--bg-subtle); color: var(--muted); font-size: 22px; line-height: 30px; }
+	.modal-close { width: 32px; height: 32px; margin: 0; padding: 0; border-radius: 16px; background: var(--plane-lilac); color: var(--muted); font-size: 22px; display: flex; flex-direction: row; align-items: center; justify-content: center; font-family: var(--sans); }
 	.modal-close::after { border: none; }
-	.composer-tabs { display: flex; flex-direction: row; gap: 4px; margin: 4px 0 12px; padding: 4px; border-radius: 14px; background: var(--bg-subtle); }
-	.composer-tab { flex: 1; height: 36px; border-radius: 10px; font-size: 12px; color: var(--muted); }
+	.composer-tabs { display: flex; flex-direction: row; gap: 4px; margin: 6px 0 12px; padding: 4px; border-radius: 14px; background: var(--plane-lilac); }
+	.composer-tab { flex: 1; height: 38px; margin: 0; border-radius: 10px; background: transparent; color: var(--plane-purple-deep); font-size: 12px; font-family: var(--sans); font-weight: 800; display: flex; flex-direction: row; align-items: center; justify-content: center; padding-top: 1px; box-sizing: border-box; }
 	.composer-tab::after { border: none; }
 	.composer-tab.active { background: var(--plane-purple); color: var(--text-invert); font-weight: 800; }
-	.composer-panel { display: flex; flex-direction: column; gap: 10px; }
+	.composer-panel { flex: 1; display: flex; flex-direction: column; gap: 10px; }
 	.paper-plane-media-grid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
-	.paper-plane-media-item, .paper-plane-media-add { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: var(--bg-subtle); }
+	.paper-plane-media-item, .paper-plane-media-add { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: var(--plane-lilac); }
 	.paper-plane-media-image { width: 100%; height: 100%; }
-	.paper-plane-media-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px dashed var(--line); color: var(--muted); font-size: 11px; }
+	.paper-plane-media-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px dashed var(--line); color: var(--muted); font-size: 11px; font-family: var(--sans); }
 	.paper-plane-media-add text:first-child { font-size: 24px; line-height: 24px; }
 	.paper-plane-media-status { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 0; background: rgba(25, 15, 48, 0.72); color: var(--text-invert); font-size: 10px; text-align: center; }
 	.paper-plane-media-failed { background: rgba(160, 55, 69, 0.86); }
 	.paper-plane-media-remove { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; margin: 0; padding: 0; border-radius: 11px; background: rgba(25, 15, 48, 0.72); color: var(--text-invert); font-size: 16px; line-height: 20px; }
 	.paper-plane-media-remove::after { border: none; }
-	.ta { width: 100%; min-height: 120px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font-size: 14px; line-height: 1.55; }
-	.compose-meta { display: flex; flex-direction: row; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); }
-	.throw-button { width: 100%; height: 46px; border-radius: 14px; background: var(--plane-purple); color: var(--text-invert); font-size: 15px; font-weight: 800; }
+	.ta { width: 100%; min-height: 100px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font-size: 14px; line-height: 1.55; font-family: var(--sans); }
+	.compose-meta { display: flex; flex-direction: row; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); font-family: var(--sans); }
+	.throw-button { width: 100%; height: 46px; border-radius: 14px; background: var(--plane-purple); color: var(--text-invert); font-size: 15px; font-weight: 800; font-family: var(--sans); display: flex; flex-direction: row; align-items: center; justify-content: center; padding-top: 1px; box-sizing: border-box; }
 	.throw-button::after { border: none; }
 	.throw-button:disabled { opacity: 0.45; }
-	.voice-panel { align-items: center; padding-top: 8px; }
+	.voice-panel { align-items: center; justify-content: flex-start; gap: 0; padding-top: 40px; }
 	.record-button { width: 96px; height: 96px; border-radius: 48px; background: var(--plane-lilac); color: var(--plane-purple); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 8px rgba(116, 80, 200, 0.08); }
 	.record-button::after { border: none; }
 	.record-button.recording { background: var(--plane-pink); color: var(--text-invert); box-shadow: 0 0 0 10px rgba(232, 108, 154, 0.12); }
-	.record-icon { font-size: 32px; }
-	.record-title { font-size: 16px; font-weight: 800; color: var(--ink); }
-	.record-hint { font-size: 12px; color: var(--muted); }
-	.voice-send { margin-top: 6px; }
+	.record-icon { font-size: 40px; }
+	.record-title { font-size: 16px; font-weight: 800; color: var(--ink); font-family: var(--sans); margin-top: 18px; }
+	.record-hint { font-size: 12px; color: var(--muted); font-family: var(--sans); margin-top: 8px; }
+	.voice-send { margin-top: auto; }
 </style>

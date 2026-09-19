@@ -33,9 +33,8 @@
 					:dynamic="normalize(item)"
 					@user-click="goUser"
 					@like="onLike"
-					@comment="goPost"
-					@collect="onCollect"
-					@share="onShare"
+				@comment="goPost"
+				@share="onShare"
 					@follow="onFollow"
 					@unfollow="onUnfollow"
 					@apply="onApply"
@@ -79,7 +78,6 @@ import {
 			joinTopic,
 			leaveTopic,
 			likeDynamic,
-			collectDynamic,
 			shareDynamic,
 			followUserFromCommunity,
 			unfollowUserFromCommunity
@@ -156,12 +154,10 @@ onShow(() => {
 				location: item.location,
 				time: item.timeText != null ? item.timeText : '',
 				timeText: item.timeText,
-				likeCount: item.likeCount,
-				commentCount: item.commentCount,
-				collectCount: item.collectCount,
-				liked: item.liked,
-				collected: item.collected,
-				followed: item.followed,
+			likeCount: item.likeCount,
+			commentCount: item.commentCount,
+			liked: item.liked,
+			followed: item.followed,
 				applyStatus: item.applyStatus,
 				topicId: item.topicId,
 				tags: item.tags,
@@ -356,22 +352,6 @@ const applyParticipation = (joined: boolean, participantCount: any) => {
 	const onShare = async (id: number) => {
 		const res = await shareDynamic(id)
 		uni.showToast({ title: res.success ? '已生成分享内容，请使用右上角分享' : '分享暂不可用，请稍后重试', icon: 'none' })
-	}
-
-	const onCollect = async (id: number) => {
-		const ok = await guardRealName('collect')
-		if (!ok) return
-		const res = await collectDynamic(id)
-		if (res.success && res.data != null) {
-			const p = posts.value.find((d: any) => d.id == id)
-			if (p != null) {
-				p.collected = res.data.collected == true
-				if (res.data.collectCount != null) p.collectCount = Number(res.data.collectCount)
-			}
-		} else {
-			const msg = res.message != null && res.message != '' ? '' + res.message : '收藏失败，请重试'
-			uni.showToast({ title: msg, icon: 'none' })
-		}
 	}
 
 	const onFollow = async (userId: number) => {

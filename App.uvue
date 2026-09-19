@@ -5,7 +5,9 @@
 		FASTAPI_DEV_USER_ID,
 		USE_MOCK,
 		getAccessToken,
-		setAuthTokens
+		setAuthTokens,
+		ONBOARDING_COMPLETED_KEY,
+		ONBOARDING_MODE_KEY
 	} from './api/config.uts'
 
 	let parentRouteRedirecting = false
@@ -51,7 +53,7 @@
 		if (getAccessToken() != 'mock_debug_access_token_xsa') return false
 
 		try {
-			uni.setStorageSync('xsa_user_id', 9001)
+			uni.setStorageSync('xsa_user_id', 1)
 			uni.setStorageSync('xsa_login_agreed', true)
 			uni.setStorageSync('xsa_skip_welcome_once', true)
 		} catch (e) {
@@ -66,9 +68,31 @@
 	let firstBackTime = 0
 	// #endif
 
+	// 启动恢复会话：若本地已存有有效（真实）token，则跳过欢迎/登录页直接回到主页，
+	// 避免「重新进入小程序」后又要从头登录、重填身份资料。
+	const tryRestoreSession = (): boolean => {
+		const token = getAccessToken()
+		if (token == '' || token == 'local_demo_access_token' || token == 'mock_debug_access_token_xsa') return false
+		const mode = uni.getStorageSync(ONBOARDING_MODE_KEY)
+		if (mode == 'parent') {
+			uni.reLaunch({ url: '/pages/parent/parent' })
+			return true
+		}
+		if (uni.getStorageSync(ONBOARDING_COMPLETED_KEY) == true) {
+			// 已完成引导：跳过欢迎页，直接进首页
+			uni.setStorageSync('xsa_skip_welcome_once', true)
+			uni.switchTab({ url: '/pages/index/index' })
+		} else {
+			// 引导未完成：继续引导流程
+			uni.reLaunch({ url: '/pagesSub/userExtra/onboarding/profile' })
+		}
+		return true
+	}
+
 	onLaunch(() => {
 		console.log('App Launch')
 		uni.setStorageSync('xsa_new_app_launch', true)
+		if (tryRestoreSession()) return
 		if (!tryAutoEnterFastApiCommunity()) tryAutoEnterMock()
 	})
 
@@ -171,8 +195,8 @@
 		--shortcut-lab: #F6E8DE;
 
 		/* 纸飞机工作台 */
-		--plane-purple: #7450C8;
-		--plane-purple-deep: #4D2E96;
+		--plane-purple: #8E72D6;
+		--plane-purple-deep: #6B4DC1;
 		--plane-pink: #E86C9A;
 		--plane-lilac: #EEE8FF;
 		--plane-yellow: #F4B942;

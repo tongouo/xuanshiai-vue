@@ -84,15 +84,7 @@
 								<text class="plane-banner-plane plane-banner-plane-blue">✈</text>
 								<text class="plane-banner-plane plane-banner-plane-pink">✈</text>
 							</view>
-							<view v-if="b.type === 'activity'" class="activity-banner-art">
-								<view class="activity-banner-circle"></view>
-								<view class="activity-banner-triangle"></view>
-								<view class="activity-banner-dot"></view>
-							</view>
-							<view class="feature-kicker-wrap">
-								<view class="feature-kicker-dot"></view>
-								<text class="feature-kicker">{{ b.kicker != null ? b.kicker : bannerKicker(b.type) }}</text>
-							</view>
+							<text class="feature-kicker">{{ b.kicker != null ? b.kicker : bannerKicker(b.type) }}</text>
 							<text class="feature-title">{{ b.title }}</text>
 							<text class="feature-desc">{{ b.description }}</text>
 							<view class="feature-btn">
@@ -143,9 +135,8 @@
 					:dynamic="normalizeDynamic(item)"
 					@user-click="handleUserClick"
 					@like="handleLike"
-					@comment="handleComment"
-					@collect="handleCollect"
-					@share="handleShare"
+				@comment="handleComment"
+				@share="handleShare"
 					@follow="handleFollow"
 					@unfollow="handleUnfollow"
 					@apply="handleApply"
@@ -192,13 +183,13 @@ import XsaTabBar from '@/components/XsaTabBar.uvue'
 		getTopics,
 		getActivities,
 		getCommunityBanners,
+		getFixedCommunityBanner,
 		getUnreadNotificationCount,
 		getCurrentCity,
 		setCurrentCity,
 		COMMUNITY_CITY_OPTIONS,
-		likeDynamic,
-		collectDynamic,
-		shareDynamic,
+	likeDynamic,
+	shareDynamic,
 		followUserFromCommunity,
 		unfollowUserFromCommunity
 	} from '@/api'
@@ -211,9 +202,6 @@ import XsaTabBar from '@/components/XsaTabBar.uvue'
 	// discover: all / mbti / alumni
 	const currentTab = ref('discover')
 	const currentFilter = ref('all')
-	const COMMUNITY_ENTRY_TARGET_KEY = 'xsa-community-entry-target'
-	const communityMounted = ref(false)
-	const hasShown = ref(false)
 	const loading = ref(false)
 	const loadError = ref('')
 	const hasMore = ref(true)
@@ -269,44 +257,51 @@ const cityName = ref('')
 			]
 	})
 
-	const consumeEntryTarget = (): boolean => {
-		let target = ''
-		try {
-			target = '' + uni.getStorageSync(COMMUNITY_ENTRY_TARGET_KEY)
-			if (target != '') uni.removeStorageSync(COMMUNITY_ENTRY_TARGET_KEY)
-		} catch (e) {
-			console.error(e)
-		}
-		if (target != 'follow-all') return false
-		currentTab.value = 'follow'
-		currentFilter.value = 'all'
-		bannerIndex.value = 0
-		dynamicList.value = []
-		return true
-	}
-
-	onMounted(async () => {
-		consumeEntryTarget()
+onMounted(async () => {
 			await loadCity()
-			await loadDynamics(true)
+			loadDynamics(true)
 			loadTopics()
 			loadActivity()
 			loadBanners()
 			loadUnread()
-			communityMounted.value = true
 		})
 
 	onShow(() => {
-		const firstShow = !hasShown.value
-		hasShown.value = true
-		const targeted = consumeEntryTarget()
+		// 从详情页返回后，对齐评论数变化（删除评论/新增评论）
+		applyCommentCountSync()
 		loadUnread()
-		if (firstShow || !communityMounted.value) return
 		// 从资料页喜欢用户返回后，关注流需要刷新
-		if (targeted || currentTab.value === 'follow') {
+		if (currentTab.value === 'follow') {
 			reload()
 		}
 	})
+
+	// 消费 post-detail 写入的评论数同步记录，保持列表与详情一致
+	const applyCommentCountSync = () => {
+		try {
+			const raw = uni.getStorageSync('xsa_comment_count_sync')
+			if (raw == null || ('' + raw) == '') return
+			const map = JSON.parse('' + raw)
+			if (map == null || typeof map !== 'object') return
+			const list = dynamicList.value as any[]
+			let changed = false
+			for (let i = 0; i < list.length; i++) {
+				const key = '' + list[i].id
+				if (map[key] != null) {
+					list[i].commentCount = Number(map[key])
+					changed = true
+					delete map[key]
+				}
+			}
+			if (changed) dynamicList.value = list.slice()
+			const remainKeys = Object.keys(map)
+			if (remainKeys.length > 0) {
+				uni.setStorageSync('xsa_comment_count_sync', JSON.stringify(map))
+			} else {
+				uni.removeStorageSync('xsa_comment_count_sync')
+			}
+		} catch (e) {}
+	}
 
 	const emptyTitle = computed(() => {
 		if (currentTab.value === 'follow') {
@@ -361,12 +356,10 @@ const normalizeDynamic = (item: any) => {
 				location: item.location,
 				time: item.timeText != null ? item.timeText : formatTime(item.time != null ? item.time : item.createdAt),
 				timeText: item.timeText != null ? item.timeText : formatTime(item.time != null ? item.time : item.createdAt),
-				likeCount: item.likeCount,
-				commentCount: item.commentCount,
-				collectCount: item.collectCount,
-				liked: item.liked,
-				collected: item.collected,
-				followed: item.followed,
+			likeCount: item.likeCount,
+			commentCount: item.commentCount,
+			liked: item.liked,
+			followed: item.followed,
 				applyStatus: item.applyStatus,
 				topicId: item.topicId,
 				tags: item.tags,
@@ -494,30 +487,17 @@ const cityArg = isValidCity(cityName.value) ? cityName.value : ''
 	const loadBanners = async () => {
 		try {
 			const res = await getCommunityBanners()
-			if (res.success && res.data != null) {
-				// 每个 type 只保留一个 entry：热门话题 / 纸飞机 / 线下活动 各出现一次，
-				// 避免后端返回重复 topic 时在 banner 轮播里出现两块「热门话题」。
-				const list = res.data as any[]
-				const seen: Record<string, boolean> = {}
-				const result: any[] = []
-				const order = ['topic', 'plane', 'activity']
-				for (const t of order) {
-					const found = list.find((b: any) => b != null && b.type === t && !seen[t])
-					if (found != null) {
-						result.push(found)
-						seen[t] = true
-					}
-				}
-				// 其他未预见的 type 原样补齐，不重复
-				for (const b of list) {
-					if (b != null && !seen[b.type]) {
-						result.push(b)
-						seen[b.type] = true
-					}
-				}
-				banners.value = result
+			if (res.success && res.data != null && Array.isArray(res.data) && res.data.length > 0) {
+				// 后端正常返回时，api 层 ensureCommunityBanners 已补好固定的纸飞机入口
+				banners.value = res.data as any[]
+				return
 			}
 		} catch (e) {}
+		// 页面级兜底：接口失败 / 未登录(401) / 无返回时，仍展示固定的纸飞机入口，
+		// 避免整块 banner 轮播因 banners 为空而整体消失
+		if (banners.value.length === 0) {
+			banners.value = [getFixedCommunityBanner()]
+		}
 	}
 
 	const loadUnread = async () => {
@@ -666,28 +646,6 @@ const handleLike = async (dynamicId: number) => {
 
 	const handleComment = (dynamicId: number) => {
 		uni.navigateTo({ url: '/pagesSub/community/post-detail?id=' + dynamicId })
-	}
-
-	const handleCollect = async (dynamicId: number) => {
-		const ok = await guardRealName('collect')
-		if (!ok) return
-		try {
-			const res = await collectDynamic(dynamicId)
-			if (res.success && res.data != null) {
-				const list = dynamicList.value as any[]
-				const idx = list.findIndex((d: any) => d.id == dynamicId)
-				if (idx >= 0) {
-					list[idx].collected = res.data.collected == true
-					if (res.data.collectCount != null) list[idx].collectCount = Number(res.data.collectCount)
-				}
-				dynamicList.value = list.slice()
-			} else {
-				const msg = res.message != null && res.message != '' ? '' + res.message : '收藏失败，请重试'
-				uni.showToast({ title: msg, icon: 'none' })
-			}
-		} catch (e) {
-			uni.showToast({ title: '收藏失败，请重试', icon: 'none' })
-		}
 	}
 
 	const handleShare = async (dynamicId: number) => {
@@ -893,6 +851,7 @@ const switchCity = () => {
 <style scoped>
 	.community-page {
 		height: 100vh;
+		font-family: var(--sans);
 		background: var(--canvas);
 		display: flex;
 		flex-direction: column;
@@ -905,7 +864,7 @@ const switchCity = () => {
 		align-items: flex-end;
 		gap: 18px;
 		padding: 0 14px;
-		background: var(--surface);
+		background: var(--surface-overlay);
 		border-bottom: 1px solid var(--line);
 	}
 
@@ -915,8 +874,12 @@ const switchCity = () => {
 		flex-direction: row;
 		align-items: center;
 		color: var(--muted);
-		font-size: 13px;
+		font-size: 15px;
 		position: relative;
+	}
+
+	.subtab text {
+		font-family: var(--sans);
 	}
 
 	.subtab.active {
@@ -981,35 +944,36 @@ const switchCity = () => {
 		flex-wrap: wrap;
 		gap: 8px;
 		padding: 10px 14px 6px;
-		background: var(--surface);
-		border-bottom: 1px solid var(--line);
+		background: var(--canvas);
 	}
 
 	.filter-chip {
-		height: 28px;
-		padding: 0 12px;
+		height: 29px;
+		padding: 0 13px;
 		border-radius: 999px;
-		border: 1px solid transparent;
-		background: var(--canvas);
+		border: 1px solid var(--line);
+		background: var(--surface);
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+		font-family: var(--sans);
 	}
 
-	.filter-chip text {
-		font-size: 12px;
-		color: #9A9A9A;
+	.filter-chip text,
+	.filter-chip.active text {
+		font-size: 13px;
+		font-family: var(--sans);
+		color: var(--muted);
 		font-weight: 600;
 	}
 
 	.filter-chip.active {
-		border-color: #E8F1ED;
-		background: #E8F1ED;
+		border-color: var(--accent);
+		background: var(--accent-bg);
 	}
 
 	.filter-chip.active text {
-		color: #5A7D72;
-		font-weight: 700;
+		color: var(--accent2);
 	}
 
 	.dynamic-list {
@@ -1212,9 +1176,9 @@ const switchCity = () => {
 			position: relative;
 			overflow: hidden;
 			gap: 8px;
-			background: #E8E0F5;
-			border: 1px solid #D6CAE8;
-			box-shadow: 0 4px 14px rgba(74, 62, 140, 0.06);
+			background: var(--accent-bg);
+			border: 1px solid var(--accent);
+			box-shadow: var(--shadow-sm);
 		}
 
 		.feature.type-plane .feature-kicker,
@@ -1226,13 +1190,13 @@ const switchCity = () => {
 		}
 
 		.feature.type-plane .feature-kicker {
-			color: #5A3E8C;
+			color: var(--accent2);
 			line-height: 1.4;
 		}
 
 		.feature.type-plane .feature-desc {
 			max-width: 56%;
-			color: #5A3E8C;
+			color: var(--accent2);
 			line-height: 1.65;
 		}
 
@@ -1240,16 +1204,15 @@ const switchCity = () => {
 			max-width: 62%;
 			font-size: 22px;
 			line-height: 1.35;
-			color: #5A3E8C;
+			color: var(--accent2);
 		}
 
 		.feature.type-plane .feature-btn {
-			background: #FFFFFF;
-			border: 1px solid #D6CAE8;
+			background: var(--paper);
 		}
 
 		.feature.type-plane .feature-btn text {
-			color: #5A3E8C;
+			color: var(--accent2);
 		}
 
 		.plane-banner-art {
@@ -1266,7 +1229,7 @@ const switchCity = () => {
 			width: 146px;
 			height: 156px;
 			border-radius: 20px 0 0 0;
-			background: #9B7FD8;
+			background: var(--accent);
 			opacity: 0.22;
 			transform: rotate(-14deg);
 		}
@@ -1281,8 +1244,8 @@ const switchCity = () => {
 			right: 27px;
 			top: 60px;
 			font-size: 58px;
-			color: #7450C8;
-			opacity: 0.86;
+			color: var(--sage);
+			opacity: 0.78;
 			transform: rotate(-18deg);
 		}
 
@@ -1290,8 +1253,8 @@ const switchCity = () => {
 			right: 94px;
 			top: 26px;
 			font-size: 22px;
-			color: #A48BD6;
-			opacity: 0.78;
+			color: var(--soft);
+			opacity: 0.76;
 			transform: rotate(12deg);
 		}
 
@@ -1299,113 +1262,13 @@ const switchCity = () => {
 			right: 12px;
 			bottom: 18px;
 			font-size: 19px;
-			color: #C4B4E8;
-			opacity: 0.78;
+			color: var(--soft);
+			opacity: 0.76;
 			transform: rotate(-8deg);
 		}
 
 		.feature.type-activity {
-			position: relative;
-			overflow: hidden;
-			background: #F5F0E8;
-			border: 1px solid #EADDCB;
-			border-radius: 14px;
-			box-shadow: 0 4px 14px rgba(120, 92, 60, 0.06);
-			gap: 8px;
-		}
-
-		.feature.type-activity .feature-kicker,
-		.feature.type-activity .feature-title,
-		.feature.type-activity .feature-desc,
-		.feature.type-activity .feature-btn {
-			position: relative;
-			z-index: 1;
-		}
-
-		.feature.type-activity .feature-kicker-wrap {
-			position: relative;
-			z-index: 1;
-			align-self: flex-start;
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 5px;
-			background: rgba(255, 251, 245, 0.88);
-			padding: 4px 8px;
-			border-radius: 999px;
-		}
-
-		.feature.type-activity .feature-kicker-dot {
-			width: 5px;
-			height: 5px;
-			border-radius: 50%;
-			background: #C2956B;
-		}
-
-		.feature.type-activity .feature-kicker {
-			font-size: 9px;
-			font-weight: 700;
-			letter-spacing: 0.06em;
-			color: #9A7B5E;
-			line-height: 1;
-		}
-
-		.feature.type-activity .feature-title {
-			color: #3A2E22;
-			font-family: var(--sans);
-		}
-
-		.feature.type-activity .feature-desc {
-			color: #8F7A66;
-			max-width: 58%;
-		}
-
-		.feature.type-activity .feature-btn {
-			background: #FFFFFF;
-			border: 1px solid #E0CBB2;
-		}
-
-		.feature.type-activity .feature-btn text {
-			color: #9A7B5E;
-		}
-
-		.activity-banner-art {
-			position: absolute;
-			inset: 0;
-			overflow: hidden;
-			pointer-events: none;
-		}
-
-		.activity-banner-circle {
-			position: absolute;
-			right: -24px;
-			top: 18px;
-			width: 92px;
-			height: 92px;
-			border-radius: 50%;
-			background: rgba(226, 196, 163, 0.62);
-		}
-
-		.activity-banner-triangle {
-			position: absolute;
-			right: 34px;
-			bottom: -28px;
-			width: 0;
-			height: 0;
-			border-left: 44px solid transparent;
-			border-right: 44px solid transparent;
-			border-bottom: 76px solid rgba(214, 184, 150, 0.54);
-			transform: rotate(-12deg);
-		}
-
-		.activity-banner-dot {
-			position: absolute;
-			right: 78px;
-			bottom: 42px;
-			width: 14px;
-			height: 14px;
-			border-radius: 50%;
-			background: rgba(255, 251, 245, 0.78);
+			background: var(--navy);
 		}
 
 		.feature-kicker {
@@ -1416,10 +1279,10 @@ const switchCity = () => {
 		}
 
 		.feature-title {
-			font-size: 18px;
-			font-family: var(--serif);
-			font-weight: 700;
-			color: var(--paper);
+		font-size: 18px;
+		font-family: var(--sans);
+		font-weight: 700;
+		color: var(--paper);
 			line-height: 1.25;
 		}
 
@@ -1464,7 +1327,7 @@ const switchCity = () => {
 
 	.section-title {
 		font-size: 18px;
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-weight: 700;
 	}
 
@@ -1499,7 +1362,7 @@ const switchCity = () => {
 
 	.topic-title {
 		font-size: 15px;
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-weight: 700;
 		color: var(--ink);
 	}

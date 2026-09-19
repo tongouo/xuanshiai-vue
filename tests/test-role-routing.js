@@ -80,8 +80,8 @@ const debugLoginStart = loginPage.indexOf('const handleDemoLogin = async () =>')
 const firstLoginStart = loginPage.indexOf('const handleFirstLogin =')
 assert.ok(debugLoginStart >= 0 && firstLoginStart > debugLoginStart, 'demo login handler should be complete')
 assert.ok(
-	loginPage.slice(debugLoginStart, firstLoginStart).includes('routeAfterLogin(null, true)'),
-	'authenticated demo login should send a new account through role selection',
+	loginPage.slice(debugLoginStart, firstLoginStart).includes('finishLogin(res.data)'),
+	'authenticated demo login should reuse the same success path as phone login (no forced reLaunch to role selection)',
 )
 
 const configApi = read('api/config.uts')

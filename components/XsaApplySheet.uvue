@@ -1,5 +1,5 @@
 <template>
-	<XsaSheet :visible="visible" title="申请认识" :tall="false" @close="handleClose">
+	<XsaSheet :visible="visible" title="申请认识" :tall="false" theme="lilac" @close="handleClose">
 		<view class="apply-sheet">
 			<text class="lead">对方同意后才能开始聊天。请用具体、尊重的话说明你为什么想认识 TA。</text>
 			<view class="meta-row">
@@ -11,17 +11,13 @@
 				:value="message"
 				@input="onInput"
 				placeholder="例如：看到你也喜欢看展，想认真了解一下…"
+				placeholder-style="color: #B3AFCB"
 				maxlength="120"
 			></textarea>
 			<text class="count">{{ message.length }}/120</text>
-			<view class="tips">
-				<text class="tip">· 仅需实名认证；学历不作为拦截条件</text>
-				<text class="tip">· 未双方同意前不可交换联系方式</text>
-				<text class="tip">· 次数用尽可用积分加次，会员权益仅作说明</text>
-			</view>
 			<view class="actions">
 				<button class="btn secondary" @click="handleClose">取消</button>
-					<button class="btn primary" :class="{ 'is-disabled': submitting || message.trim().length == 0 }" :disabled="submitting || message.trim().length == 0" @click="handleSubmit">
+				<button class="btn primary" :disabled="submitting || message.trim().length == 0" @click="handleSubmit">
 					{{ submitting ? '提交中…' : '发送申请' }}
 				</button>
 			</view>
@@ -142,9 +138,9 @@
 	}
 
 	.lead {
-		font-size: 13px;
+		font-size: 16px;
 		line-height: 1.6;
-		color: var(--muted);
+		color: #5A566B;
 	}
 
 	.meta-row {
@@ -153,49 +149,37 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 10px 12px;
-		background: var(--soft);
+		background: #F6F6FE;
 		border-radius: 10px;
 	}
 
 	.meta-label {
-		font-size: 12px;
-		color: var(--muted);
+		font-size: 18px;
+		color: #7B79F2;
 	}
 
 	.meta-value {
 		font-size: 13px;
 		font-weight: 700;
-		color: var(--accent);
+		color: #7B79F2;
 	}
 
 	.message-input {
 		width: 100%;
-		min-height: 96px;
+		min-height: 140px;
 		padding: 12px;
-		background: var(--surface);
-		border: 1px solid var(--line);
+		background: #FFFFFF;
+		border: 1px solid #BDB9F6;
 		border-radius: 12px;
 		font-size: 14px;
-		color: var(--ink);
+		color: #3E3A4D;
 		line-height: 1.55;
 	}
 
 	.count {
 		align-self: flex-end;
 		font-size: 11px;
-		color: var(--muted);
-	}
-
-	.tips {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.tip {
-		font-size: 11px;
-		color: var(--muted);
-		line-height: 1.5;
+		color: #9A96AD;
 	}
 
 	.actions {
@@ -210,7 +194,7 @@
 		flex: 1;
 		height: 44px;
 		border-radius: 999px;
-		font-size: 14px;
+		font-size: 20px;
 		font-weight: 600;
 		display: flex;
 		flex-direction: row;
@@ -220,17 +204,17 @@
 	}
 
 	.btn.secondary {
-		background: var(--paper);
-		color: var(--ink);
-		border: 1px solid var(--line);
+		background: #FFFFFF;
+		color: #6E6A85;
+		border: 1px solid #BDB9F6;
 	}
 
 	.btn.primary {
-		background: var(--accent);
-		color: var(--text-invert);
+		background: #7F7DF8;
+		color: #FFFFFF;
 	}
 
-	.btn.is-disabled {
+	.btn[disabled] {
 		opacity: 0.5;
 	}
 </style>

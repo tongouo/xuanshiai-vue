@@ -110,9 +110,14 @@
 	const codeButtonText = ref('获取验证码')
 	const debugAccountPhones = ['19730552884', '13000000000']
 	const debugAccountPassword = 'password123'
+	// 演示/首次登录使用的手机号：mock 模式下 /auth/sms/send 下发的验证码恒为 123456
+	const DEMO_PHONE = '13812345678'
 
 	const goHome = () => {
 		uni.setStorageSync('xsa_skip_welcome_once', true)
+		// 与「跳过引导直接进首页」的分数判定保持一致：当资料完成度已够、无需引导时，
+		// 同步置位 onboarding 完成标志，避免 onLaunch 的 tryRestoreSession 因该标志缺失又把用户打回引导页重填资料。
+		uni.setStorageSync('xsa_onboarding_completed', true)
 		uni.switchTab({ url: '/pages/index/index' })
 	}
 
@@ -289,14 +294,19 @@
 		if (authLoading.value || !agreementChecked.value) return
 		authLoading.value = true
 		try {
-			if (!startLocalDemoSession()) {
-				uni.showToast({ title: '演示登录失败，请重试', icon: 'none' })
+			// 演示/首次登录走真实后端登录：先下发验证码（mock 模式恒为 123456），再用其换取有效 token。
+			// 否则本地假 token 在后续「保存资料」请求时会被后端拒绝（令牌过期）。
+			try { await sendSms(DEMO_PHONE, 'login') } catch (e) { /* mock 下通常成功，忽略下发异常 */ }
+			const res = await loginByPhone(DEMO_PHONE, '123456')
+			if (!res.success || res.data == null || res.data.access_token == null) {
+				uni.showToast({ title: responseMessage(res, '演示登录失败，请确认后端已启动'), icon: 'none' })
 				return
 			}
-			uni.showToast({ title: '登录成功，请选择身份', icon: 'success' })
-			setTimeout(() => {
-				routeAfterLogin(null, true)
-			}, 300)
+			// 与「手机号验证码登录」走完全相同的成功路径：根据资料完成度决定进首页还是引导页，
+			// 不再强制 reLaunch 到引导页（之前那样会清空 onboarding 完成标志、整页刷新、丢失登录态）。
+			await finishLogin(res.data)
+		} catch (e) {
+			uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
 		} finally {
 			authLoading.value = false
 		}
@@ -321,7 +331,8 @@
 
 	const handleFirstLogin = () => {
 		if (!agreementChecked.value) return
-		uni.navigateTo({ url: '/pages/auth/register' })
+		// 首次登录同样走真实后端登录，拿到有效 token 后再进入选身份页，避免后续保存资料报令牌过期
+		handleDemoLogin()
 	}
 </script>
 

@@ -136,7 +136,7 @@
 	}
 	.title {
 		font-size: 18px;
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-weight: 700;
 		color: var(--ink);
 	}
